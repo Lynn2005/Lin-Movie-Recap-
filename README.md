@@ -1,49 +1,37 @@
-# Lin Movie Recap
+# AI MM Recap
 
-A Python 3 / FastAPI starter for turning an uploaded movie into a Burmese recap script and AI narration.
+A production-oriented FastAPI application for creating Burmese movie recap videos. The workflow uploads and validates a movie, extracts audio, creates a timestamped original transcript with Groq Whisper, writes a Burmese recap with Gemini, generates Myanmar narration with Edge TTS, synchronizes subtitles to the actual narration duration, and renders a downloadable H.264/AAC MP4 with FFmpeg.
 
-## Current workflow
-
-1. Upload MP4, MOV, MKV, WEBM, or AVI.
-2. FFmpeg extracts audio.
-3. Groq Whisper creates an original transcript SRT.
-4. Gemini writes a Burmese recap script.
-5. Edge TTS attempts to generate Burmese narration.
-6. Download the transcript, script, and voice from the results page.
-
-## Deploy on Render
-
-This repository includes a Dockerfile and `render.yaml`.
-
-1. Open Render and create a new Web Service from this repository.
-2. Choose Docker as the runtime if asked.
-3. Add `GROQ_API_KEY` and `GEMINI_API_KEY` under Environment.
-4. Deploy and check `/health`.
-
-Never put API keys in source code or commit a real `.env` file.
-
-## Local run
+## Run locally
 
 Requires Python 3.11+ and FFmpeg.
 
 ```bash
+python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Add API keys to .env
+# add GROQ_API_KEY and GEMINI_API_KEY to .env
 uvicorn app.main:app --reload
 ```
 
-## Important current limitations
+Open `http://localhost:8000`. The health check is `/health`.
 
-- This is the initial working foundation, not the complete editor/export pipeline yet.
-- Job status is currently held in process memory; a restart clears status. Use persistent job storage and a queue before relying on long jobs in production.
-- The current version creates the narration audio but does not yet merge it with the video or render Burmese subtitles.
-- Render disk/persistence and upload limits must be checked against the selected Render plan.
-- TTS provider availability and Myanmar Unicode rendering need real deployment testing.
+## Deployment
 
-## Environment variables
+The included Dockerfile installs FFmpeg and Myanmar-compatible fonts. Render can deploy the repository using the included `render.yaml`; add `GROQ_API_KEY` and `GEMINI_API_KEY` as secret environment variables. For real production persistence, attach a persistent disk and set `DATA_DIR` to its mount path. The free Render filesystem is otherwise ephemeral.
 
-- `GROQ_API_KEY`: Groq API key for transcription.
-- `GEMINI_API_KEY`: Google Gemini API key for recap generation.
-- `DATA_DIR`: data directory; defaults to `data`.
-- `MAX_UPLOAD_MB`: upload size limit; defaults to 1500 MB.
+## API workflow
+
+- `POST /api/jobs` — streamed upload plus FFprobe validation
+- `GET /api/jobs/{job_id}` — persistent job status and available files
+- `PATCH /api/jobs/{job_id}` — edit script and rendering settings
+- `POST /api/jobs/{job_id}/retry` — retry from the failed stage
+- `POST /api/jobs/{job_id}/render` — render after editing
+- `GET /jobs/{job_id}/{filename}` — download validated intermediate/final files
+- `GET /api/projects` — list saved projects
+
+Jobs are stored as `data/jobs/{job_id}/job.json` with media files retained until the data directory is explicitly removed. API keys are only read server-side and are never sent to browser JavaScript.
+
+## Provider notes
+
+Groq and Gemini usage is subject to their current account limits and pricing. Edge TTS availability can change; provider errors are surfaced as actionable job failures. The implementation does not claim any provider is unlimited or permanently free.
