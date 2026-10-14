@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: lin-movie-recap
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: lin-movie-recap-data
+      mountPath: /var/data
+      sizeGB: 1
